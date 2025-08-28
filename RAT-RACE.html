@@ -1,0 +1,473 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Critter Capture Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Press Start 2P', cursive;
+            touch-action: none; /* Disable panning and zooming on touch devices */
+            background-image: url('https://i.imgur.com/x8Dgf3Z.png');
+        }
+        #game-area {
+            cursor: none; /* Hide the default cursor */
+            background-size: cover;
+            background-position: center;
+            touch-action: none;
+        }
+        #broom-cursor {
+            position: absolute;
+            width: 80px; /* Adjust size as needed */
+            height: 80px;
+            pointer-events: none; /* Make sure the image doesn't block clicks */
+            z-index: 101; /* Ensure it's on top of everything */
+            transform: translate(-20%, -80%); /* Offset to align tip with cursor */
+            display: none; /* Hidden by default */
+        }
+        .critter {
+            width: 60px;
+            height: 60px;
+            position: absolute;
+            transition: top 0.1s ease-out, left 0.1s ease-out; /* Even faster transition */
+            user-select: none; /* Prevent selecting the image */
+        }
+        #cat-decoy {
+            width: 120px; /* 2x larger than 60px */
+            height: 120px;
+        }
+        .critter img {
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Make sure the image doesn't interfere with mouse events */
+        }
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-4xl mx-auto text-center bg-gray-900 bg-opacity-75 p-6 rounded-lg">
+        <!-- Logo -->
+        <img src="https://i.imgur.com/5Zuva7U.png" alt="Critter Capture Logo" class="w-[538px] h-[358px] mx-auto mb-2 rounded-lg object-contain"
+        onerror="this.onerror=null; this.src='https://placehold.co/538x358/1F2937/EAB308?text=Logo';">
+        
+        <p class="text-lg md:text-xl mb-4 text-yellow-400">can you catch the critter?</p>
+
+        <!-- Game Info Bar -->
+        <div class="grid grid-cols-3 gap-4 bg-gray-800 p-4 rounded-lg shadow-lg mb-4 text-xl md:text-2xl">
+            <div class="text-left">
+                <span class="text-green-400">Score:</span>
+                <span id="score" class="font-bold">0</span>
+            </div>
+            <div class="text-center">
+                <span class="text-red-400">Time:</span>
+                <span id="timer" class="font-bold">30</span>
+            </div>
+            <div class="text-right">
+                <span class="text-blue-400">Level:</span>
+                <span id="level" class="font-bold">1</span>
+            </div>
+            <div class="col-span-3 text-center pt-2 flex justify-between items-center">
+                 <span class="text-yellow-400">Target:</span>
+                 <span id="target-score" class="font-bold">10</span>
+                 <button id="mute-btn" class="text-yellow-400 hover:text-yellow-300 focus:outline-none text-base px-2">
+                    Mute
+                </button>
+            </div>
+        </div>
+
+        <!-- Game Area -->
+        <div id="game-area" class="relative w-full h-[50vh] md:h-[60vh] rounded-lg shadow-2xl border-4 border-gray-600 overflow-hidden">
+             <img src="https://i.imgur.com/RxNXzYC.png" id="broom-cursor" alt="Broom Cursor">
+            <div id="mouse" class="critter">
+                <img src="https://i.imgur.com/YJ1sWMf.png" alt="Main Critter Target">
+            </div>
+            <!-- Decoys for Level 4 -->
+            <div class="decoy critter hidden">
+                <img src="https://i.imgur.com/gendmJF.png" alt="Butterfly Decoy">
+            </div>
+            <div class="decoy critter hidden">
+                <img src="https://i.imgur.com/gendmJF.png" alt="Butterfly Decoy">
+            </div>
+            <div class="decoy critter hidden">
+                <img src="https://i.imgur.com/gendmJF.png" alt="Butterfly Decoy">
+            </div>
+            <!-- Cat Decoy for Level 3 -->
+            <div id="cat-decoy" class="critter hidden">
+                <img src="https://i.imgur.com/8aZuxjq.png" alt="Cat Decoy">
+            </div>
+        </div>
+
+        <!-- Start/Reset Button -->
+        <button id="start-btn" class="mt-4 w-full max-w-xs bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-3 px-6 rounded-lg text-2xl shadow-lg transform hover:scale-105 transition-transform">
+            Start Game
+        </button>
+    </div>
+
+    <!-- Modals -->
+    <div id="game-over-modal" class="modal-backdrop hidden">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-xl text-center border-4 border-red-500">
+            <img src="https://i.imgur.com/mWs6ZG0.png" alt="Game Over" class="w-96 mx-auto mb-4">
+            <p class="text-2xl mb-6">You didn't reach the target score.</p>
+            <div class="flex space-x-4">
+                <button id="restart-level-btn" class="w-1/2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-3 px-4 rounded-lg text-xl">
+                    Try Level Again
+                </button>
+                <button id="end-game-over-btn" class="w-1/2 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg text-xl">
+                    End Game
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="level-complete-modal" class="modal-backdrop hidden">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-xl text-center border-4 border-green-500">
+            <h2 class="text-4xl mb-4 text-green-500">Level Complete!</h2>
+            <p class="text-2xl mb-6">Great job! Get ready for the next level.</p>
+            <button id="next-level-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-2xl">
+                Next Level
+            </button>
+        </div>
+    </div>
+
+    <div id="game-win-modal" class="modal-backdrop hidden">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-xl text-center border-4 border-yellow-400">
+            <img src="https://i.imgur.com/0jheY86.png" alt="You Win!" class="w-96 mx-auto mb-4">
+            <p class="text-2xl mb-6">You've completed all the levels!</p>
+            <div class="flex space-x-4">
+                <button id="play-again-btn" class="w-1/2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-3 px-4 rounded-lg text-xl">
+                    Play Again
+                </button>
+                <button id="end-game-win-btn" class="w-1/2 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg text-xl">
+                    End Game
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Files -->
+    <audio id="background-music" loop>
+        <source src="https://raw.githubusercontent.com/mikiehldesign-max/gamesounds/1ea615ad4b707ce74e23dcb2af9bd51ed1c9cf8d/Untitled.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="critter-sound">
+        <source src="https://raw.githubusercontent.com/mikiehldesign-max/gamesounds/1ea615ad4b707ce74e23dcb2af9bd51ed1c9cf8d/11L-video_game_squeak_mo-1756343489874.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="cat-sound">
+        <source src="https://raw.githubusercontent.com/mikiehldesign-max/gamesounds/1ea615ad4b707ce74e23dcb2af9bd51ed1c9cf8d/11L-cat_meow-1756343525531.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="butterfly-sound">
+        <source src="https://raw.githubusercontent.com/mikiehldesign-max/gamesounds/1ea615ad4b707ce74e23dcb2af9bd51ed1c9cf8d/11L-butterfly-1756344527597.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="game-over-sound">
+        <source src="https://raw.githubusercontent.com/mikiehldesign-max/gamesounds/72aea51b8d5a84b293a5bca2a3913984aa0e88ed/11L-game_over_video_game-1756344589027.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="win-sound">
+        <source src="https://raw.githubusercontent.com/mikiehldesign-max/gamesounds/72aea51b8d5a84b293a5bca2a3913984aa0e88ed/11L-you_win_video_game_s-1756346082260.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="ticking-sound" loop>
+        <source src="https://raw.githubusercontent.com/mikiehldesign-max/gamesounds/851daacf1f31c0aa1508cd6e47826acb7f1afe31/11L-clock_ticking-1756349695184.mp3" type="audio/mpeg">
+    </audio>
+
+
+    <script>
+        // DOM Elements
+        const gameArea = document.getElementById('game-area');
+        const broomCursor = document.getElementById('broom-cursor');
+        const mouse = document.getElementById('mouse');
+        const decoys = document.querySelectorAll('.decoy');
+        const catDecoy = document.getElementById('cat-decoy');
+        const scoreDisplay = document.getElementById('score');
+        const timerDisplay = document.getElementById('timer');
+        const levelDisplay = document.getElementById('level');
+        const targetScoreDisplay = document.getElementById('target-score');
+        const startBtn = document.getElementById('start-btn');
+        const backgroundMusic = document.getElementById('background-music');
+        const muteBtn = document.getElementById('mute-btn');
+        const critterSound = document.getElementById('critter-sound');
+        const catSound = document.getElementById('cat-sound');
+        const butterflySound = document.getElementById('butterfly-sound');
+        const gameOverSound = document.getElementById('game-over-sound');
+        const winSound = document.getElementById('win-sound');
+        const tickingSound = document.getElementById('ticking-sound');
+
+        // Modals and Buttons
+        const gameOverModal = document.getElementById('game-over-modal');
+        const levelCompleteModal = document.getElementById('level-complete-modal');
+        const gameWinModal = document.getElementById('game-win-modal');
+        const restartLevelBtn = document.getElementById('restart-level-btn');
+        const nextLevelBtn = document.getElementById('next-level-btn');
+        const playAgainBtn = document.getElementById('play-again-btn');
+        const endGameOverBtn = document.getElementById('end-game-over-btn');
+        const endGameWinBtn = document.getElementById('end-game-win-btn');
+
+        // Game State
+        let score = 0;
+        let timeLeft = 0;
+        let currentLevel = 1;
+        const maxLevels = 4;
+        let gameInterval = null;
+        let mouseMoveInterval = null;
+        let decoyMoveInterval = null;
+        let catMoveInterval = null;
+        let fadeOutInterval = null; // To manage the fade-out process
+        let isGameRunning = false;
+        let isMuted = false;
+
+        // Level Configuration
+        const levels = {
+            1: { time: 30, target: 10, speed: 800, background: 'https://i.imgur.com/1RDR2T8.png' },
+            2: { time: 25, target: 15, speed: 650, background: 'https://i.imgur.com/Tz6ONxE.png' },
+            3: { time: 20, target: 20, speed: 500, background: 'https://i.imgur.com/KItvFYQ.png', catDecoy: true, catSpeed: 1000 },
+            4: { time: 25, target: 15, speed: 450, background: 'https://i.imgur.com/ClxXmZ8.png', decoys: 3 }
+        };
+
+        // --- Core Game Functions ---
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            backgroundMusic.muted = isMuted;
+            critterSound.muted = isMuted;
+            catSound.muted = isMuted;
+            butterflySound.muted = isMuted;
+            gameOverSound.muted = isMuted;
+            winSound.muted = isMuted;
+            tickingSound.muted = isMuted;
+            muteBtn.textContent = isMuted ? 'Unmute' : 'Mute';
+        }
+
+        function setupLevel(level) {
+            const levelConfig = levels[level];
+            timeLeft = levelConfig.time;
+            score = 0;
+            
+            scoreDisplay.textContent = score;
+            timerDisplay.textContent = timeLeft;
+            levelDisplay.textContent = level;
+            targetScoreDisplay.textContent = levelConfig.target;
+            
+            gameArea.style.backgroundImage = `url('${levelConfig.background}')`;
+        }
+
+        function startGame(level) {
+            currentLevel = level;
+            setupLevel(currentLevel);
+            isGameRunning = true;
+            broomCursor.style.display = 'block'; // Show the broom cursor
+
+            gameOverModal.classList.add('hidden');
+            levelCompleteModal.classList.add('hidden');
+            gameWinModal.classList.add('hidden');
+            
+            if (fadeOutInterval) clearInterval(fadeOutInterval);
+            if (backgroundMusic.paused) {
+                backgroundMusic.volume = 1;
+                backgroundMusic.muted = isMuted;
+                backgroundMusic.currentTime = 0;
+                backgroundMusic.play().catch(e => console.log("Audio play failed:", e));
+            }
+
+            startBtn.textContent = 'Restart Level';
+            startBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+            startBtn.classList.add('bg-red-500', 'hover:bg-red-600');
+
+            if (gameInterval) clearInterval(gameInterval);
+            if (mouseMoveInterval) clearInterval(mouseMoveInterval);
+            if (decoyMoveInterval) clearInterval(decoyMoveInterval);
+            if (catMoveInterval) clearInterval(catMoveInterval);
+
+            tickingSound.pause();
+            tickingSound.currentTime = 0;
+
+            gameInterval = setInterval(updateTimer, 1000);
+            mouseMoveInterval = setInterval(moveMouse, levels[currentLevel].speed);
+
+            mouse.style.display = 'block';
+            moveMouse();
+
+            if (levels[currentLevel].decoys) {
+                decoys.forEach(decoy => decoy.classList.remove('hidden'));
+                decoyMoveInterval = setInterval(moveDecoys, levels[currentLevel].speed + 250);
+            } else {
+                decoys.forEach(decoy => decoy.classList.add('hidden'));
+            }
+            
+            if (levels[currentLevel].catDecoy) {
+                catDecoy.classList.remove('hidden');
+                catMoveInterval = setInterval(moveCat, levels[currentLevel].catSpeed);
+            } else {
+                catDecoy.classList.add('hidden');
+            }
+        }
+
+        function stopGame(keepMusicPlaying = false) {
+            isGameRunning = false;
+            broomCursor.style.display = 'none'; // Hide the broom cursor
+            clearInterval(gameInterval);
+            clearInterval(mouseMoveInterval);
+            clearInterval(decoyMoveInterval);
+            clearInterval(catMoveInterval);
+            mouse.style.display = 'none';
+            decoys.forEach(decoy => decoy.classList.add('hidden'));
+            catDecoy.classList.add('hidden');
+            tickingSound.pause();
+            tickingSound.currentTime = 0;
+
+            if (!keepMusicPlaying) {
+                if (fadeOutInterval) clearInterval(fadeOutInterval);
+                fadeOutInterval = setInterval(() => {
+                    if (backgroundMusic.volume > 0.05) {
+                        backgroundMusic.volume -= 0.05;
+                    } else {
+                        backgroundMusic.volume = 0;
+                        backgroundMusic.pause();
+                        clearInterval(fadeOutInterval);
+                    }
+                }, 100);
+            }
+        }
+        
+        function updateTimer() {
+            timeLeft--;
+            timerDisplay.textContent = timeLeft;
+            if (timeLeft === 5) {
+                tickingSound.currentTime = 0;
+                tickingSound.play();
+            }
+            if (timeLeft <= 0) {
+                stopGame();
+                gameOverSound.currentTime = 0;
+                gameOverSound.play();
+                gameOverModal.classList.remove('hidden');
+            }
+        }
+
+        function catchMouse() {
+            if (!isGameRunning) return;
+            score++;
+            scoreDisplay.textContent = score;
+            
+            critterSound.currentTime = 0;
+            critterSound.play();
+
+            if (score >= levels[currentLevel].target) {
+                if (currentLevel < maxLevels) {
+                    stopGame(true);
+                    levelCompleteModal.classList.remove('hidden');
+                } else {
+                    stopGame(false);
+                    winSound.currentTime = 0;
+                    winSound.play();
+                    gameWinModal.classList.remove('hidden');
+                }
+            } else {
+                moveMouse();
+            }
+        }
+
+        function moveElementRandomly(element) {
+             const gameAreaWidth = gameArea.clientWidth;
+            const gameAreaHeight = gameArea.clientHeight;
+            const elWidth = element.clientWidth;
+            const elHeight = element.clientHeight;
+            const maxX = gameAreaWidth - elWidth;
+            const maxY = gameAreaHeight - elHeight;
+            const randomX = Math.floor(Math.random() * maxX);
+            const randomY = Math.floor(Math.random() * maxY);
+            element.style.left = `${randomX}px`;
+            element.style.top = `${randomY}px`;
+        }
+
+        function moveMouse() {
+            if (!isGameRunning) return;
+            moveElementRandomly(mouse);
+        }
+
+        function moveDecoys() {
+            if (!isGameRunning) return;
+            decoys.forEach(decoy => moveElementRandomly(decoy));
+        }
+        
+        function moveCat() {
+            if (!isGameRunning) return;
+            moveElementRandomly(catDecoy);
+        }
+
+        function resetToTitleScreen() {
+            stopGame();
+            gameOverModal.classList.add('hidden');
+            levelCompleteModal.classList.add('hidden');
+            gameWinModal.classList.add('hidden');
+            
+            if (!backgroundMusic.paused) {
+                 if (fadeOutInterval) clearInterval(fadeOutInterval);
+                 fadeOutInterval = setInterval(() => {
+                    if (backgroundMusic.volume > 0.05) {
+                        backgroundMusic.volume -= 0.05;
+                    } else {
+                        backgroundMusic.volume = 0;
+                        backgroundMusic.pause();
+                        clearInterval(fadeOutInterval);
+                    }
+                }, 100);
+            }
+
+            startBtn.textContent = 'Start Game';
+            startBtn.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            startBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
+            
+            currentLevel = 1;
+            setupLevel(currentLevel);
+        }
+
+        // --- Event Listeners ---
+        startBtn.addEventListener('click', () => startGame(1));
+        restartLevelBtn.addEventListener('click', () => startGame(currentLevel));
+        nextLevelBtn.addEventListener('click', () => startGame(currentLevel + 1));
+        playAgainBtn.addEventListener('click', () => startGame(1));
+        endGameOverBtn.addEventListener('click', resetToTitleScreen);
+        endGameWinBtn.addEventListener('click', resetToTitleScreen);
+        muteBtn.addEventListener('click', toggleMute);
+
+        gameArea.addEventListener('mousemove', (e) => {
+            const rect = gameArea.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            broomCursor.style.left = x + 'px';
+            broomCursor.style.top = y + 'px';
+        });
+
+        mouse.addEventListener('mouseover', catchMouse);
+        mouse.addEventListener('touchstart', (e) => { e.preventDefault(); catchMouse(); });
+
+        catDecoy.addEventListener('mouseover', () => {
+             if (isMuted) return;
+             catSound.currentTime = 0;
+             catSound.play();
+        });
+        decoys.forEach(decoy => {
+            decoy.addEventListener('mouseover', () => {
+                 if (isMuted) return;
+                 butterflySound.currentTime = 0;
+                 butterflySound.play();
+            });
+        });
+
+        // Initial setup
+        setupLevel(1);
+        mouse.style.display = 'none';
+    </script>
+</body>
+</html>
